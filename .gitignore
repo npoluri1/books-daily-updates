@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+.env
+backend/data/books_daily.db
+backend/data/chroma_db/
+node_modules/
+frontend/build/
+mobile/.expo/
+mobile/node_modules/
+*.egg-info/
+dist/
+build/
+.DS_Store
+Thumbs.db

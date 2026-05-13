@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Books Daily Updates",
+    "slug": "books-daily",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#1e40af"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.booksdaily.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1e40af"
+      },
+      "package": "com.booksdaily.app",
+      "permissions": ["NOTIFICATIONS", "RECEIVE_BOOT_COMPLETED"]
+    },
+    "plugins": [
+      "@notifee/react-native"
+    ]
+  }
+}

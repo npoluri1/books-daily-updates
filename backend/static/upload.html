@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Books Daily Updates - Upload</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; min-height: 100vh; }
+nav { background: #1a1a2e; color: #fff; padding: 16px 24px; display: flex; align-items: center; gap: 24px; }
+nav h1 { font-size: 18px; font-weight: 600; }
+nav a { color: #a0a0cc; text-decoration: none; font-size: 14px; }
+nav a:hover { color: #fff; }
+.container { max-width: 800px; margin: 0 auto; padding: 32px 16px; }
+.card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); padding: 32px; margin-bottom: 24px; }
+.card h2 { font-size: 20px; margin-bottom: 16px; }
+.upload-area { border: 2px dashed #d0d5dd; border-radius: 8px; padding: 48px 24px; text-align: center; cursor: pointer; transition: border-color .2s; }
+.upload-area:hover { border-color: #6c63ff; }
+.upload-area.dragover { border-color: #6c63ff; background: #f0efff; }
+.upload-icon { font-size: 48px; margin-bottom: 12px; }
+.upload-area p { color: #667085; font-size: 14px; }
+.upload-area .browse { color: #6c63ff; font-weight: 600; cursor: pointer; }
+.upload-area input[type=file] { display: none; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .2s; }
+.btn-primary { background: #6c63ff; color: #fff; }
+.btn-primary:hover { background: #5a52e0; }
+.btn-primary:disabled { background: #a0a0cc; cursor: not-allowed; }
+.btn-secondary { background: #e8e8ff; color: #6c63ff; }
+.btn-secondary:hover { background: #d0d0ff; }
+.status { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 14px; display: none; }
+.status.success { display: block; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.status.error { display: block; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.sample-note { margin-top: 12px; font-size: 13px; color: #667085; }
+.book-list { margin-top: 16px; }
+.book-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 8px; }
+.book-item .info { flex: 1; }
+.book-item .title { font-weight: 600; font-size: 14px; }
+.book-item .meta { font-size: 12px; color: #667085; }
+.schedule-form { margin-top: 16px; display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+.schedule-form select, .schedule-form input { padding: 8px 12px; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 14px; }
+.hidden { display: none; }
+.tabs { display: flex; gap: 0; margin-bottom: 24px; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.tab { flex: 1; padding: 12px; text-align: center; cursor: pointer; font-weight: 500; font-size: 14px; border: none; background: #fff; color: #667085; transition: all .2s; }
+.tab.active { background: #6c63ff; color: #fff; }
+.tab:hover:not(.active) { background: #f0efff; }
+@media (max-width: 600px) { .container { padding: 16px 8px; } .card { padding: 20px; } }
+</style>
+</head>
+<body>
+<nav>
+  <h1>Books Daily Updates</h1>
+  <a href="http://localhost:8000/docs">API Docs</a>
+  <a href="#" onclick="showTab('upload')">Upload</a>
+  <a href="#" onclick="showTab('books')">Books</a>
+</nav>
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('upload')">Upload Excel</button>
+    <button class="tab" onclick="showTab('books')">My Books</button>
+  </div>
+
+  <div id="upload-tab">
+    <div class="card">
+      <h2>Upload Books from Excel</h2>
+      <div class="upload-area" id="dropZone">
+        <div class="upload-icon">📄</div>
+        <p>Drag & drop your Excel file here, or <span class="browse" onclick="document.getElementById('fileInput').click()">browse</span></p>
+        <p style="margin-top: 8px; font-size: 12px; color: #98a2b3;">Supports .xlsx and .xls files</p>
+        <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFile(event)">
+      </div>
+      <div id="fileName" style="margin-top: 12px; font-size: 14px; color: #333; display: none;"></div>
+      <button class="btn btn-primary" id="uploadBtn" onclick="uploadFile()" disabled style="margin-top: 16px;">Upload</button>
+      <div class="status" id="uploadStatus"></div>
+      <div class="sample-note">Sample Excel files are at <code>backend/data/books_list_1.xlsx</code></div>
+    </div>
+  </div>
+
+  <div id="books-tab" class="hidden">
+    <div class="card">
+      <h2>My Books</h2>
+      <div id="bookList"><p style="color:#667085">Loading...</p></div>
+    </div>
+    <div class="card" id="scheduleCard">
+      <h2>Schedule a Book</h2>
+      <div class="schedule-form">
+        <select id="scheduleBook"></select>
+        <button class="btn btn-primary" onclick="scheduleBook()">Schedule</button>
+      </div>
+      <div class="status" id="scheduleStatus"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8000/api';
+let selectedFile = null;
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('upload-tab').classList.add('hidden');
+  document.getElementById('books-tab').classList.add('hidden');
+  if (name === 'upload') {
+    document.querySelector('.tab:first-child').classList.add('active');
+    document.getElementById('upload-tab').classList.remove('hidden');
+  } else {
+    document.querySelector('.tab:last-child').classList.add('active');
+    document.getElementById('books-tab').classList.remove('hidden');
+    loadBooks();
+  }
+}
+
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files[0]);
+});
+
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files.length) handleFiles(e.target.files[0]);
+});
+
+function handleFiles(file) {
+  selectedFile = file;
+  document.getElementById('fileName').textContent = 'Selected: ' + file.name;
+  document.getElementById('fileName').style.display = 'block';
+  document.getElementById('uploadBtn').disabled = false;
+}
+
+async function uploadFile() {
+  if (!selectedFile) return;
+  const btn = document.getElementById('uploadBtn');
+  const status = document.getElementById('uploadStatus');
+  btn.disabled = true;
+  btn.textContent = 'Uploading...';
+  status.className = 'status';
+
+  const form = new FormData();
+  form.append('file', selectedFile);
+
+  try {
+    const res = await fetch(API + '/books/upload', { method: 'POST', body: form });
+    const data = await res.json();
+    if (res.ok) {
+      status.className = 'status success';
+      status.textContent = 'Uploaded: ' + data.books_found + ' books found, ' + data.books_added + ' new';
+      selectedFile = null;
+      document.getElementById('fileInput').value = '';
+      document.getElementById('fileName').style.display = 'none';
+    } else {
+      status.className = 'status error';
+      status.textContent = 'Error: ' + (data.detail || 'Unknown error');
+    }
+  } catch (e) {
+    status.className = 'status error';
+    status.textContent = 'Error: ' + e.message;
+  }
+  btn.disabled = false;
+  btn.textContent = 'Upload';
+}
+
+async function loadBooks() {
+  const el = document.getElementById('bookList');
+  const sel = document.getElementById('scheduleBook');
+  try {
+    const res = await fetch(API + '/books?user_id=1');
+    if (!res.ok) throw new Error(await res.text());
+    const books = await res.json();
+    if (!books.length) {
+      el.innerHTML = '<p style="color:#667085">No books yet. Upload an Excel file first.</p>';
+      sel.innerHTML = '<option value="">No books available</option>';
+      return;
+    }
+    el.innerHTML = books.map(b => `
+      <div class="book-item">
+        <div class="info">
+          <div class="title">${b.title}</div>
+          <div class="meta">${b.author || 'Unknown author'} · ${b.total_chapters || '?'} chapters · ${b.is_active ? '✅ Active' : '❌ Inactive'}</div>
+        </div>
+      </div>
+    `).join('');
+    sel.innerHTML = books.filter(b => b.is_active).map(b =>
+      `<option value="${b.id}">${b.title}${b.author ? ' (' + b.author + ')' : ''}</option>`
+    ).join('');
+  } catch (e) {
+    el.innerHTML = '<p style="color:#991b1b">Error loading books: ' + e.message + '</p>';
+  }
+}
+
+async function scheduleBook() {
+  const sel = document.getElementById('scheduleBook');
+  const status = document.getElementById('scheduleStatus');
+  if (!sel.value) return;
+  status.className = 'status';
+  try {
+    const res = await fetch(API + '/reading/schedule?book_id=' + sel.value + '&user_id=1', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      status.className = 'status success';
+      status.textContent = 'Scheduled! Start reading at /api/reading/daily';
+    } else {
+      status.className = 'status error';
+      status.textContent = 'Error: ' + (data.detail || 'Unknown');
+    }
+  } catch (e) {
+    status.className = 'status error';
+    status.textContent = 'Error: ' + e.message;
+  }
+}
+</script>
+</body>
+</html>
