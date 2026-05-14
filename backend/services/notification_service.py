@@ -148,16 +148,19 @@ class TelegramNotifier:
                             chapter_title: Optional[str], summary: str,
                             key_points: List[str]) -> bool:
         text = f"<b>📚 {book_title}</b>\n"
-        text += f"<b>Chapter {chapter_num}</b>"
+        text += f"<b>▸ Chapter {chapter_num}</b>"
         if chapter_title:
             text += f": {chapter_title}"
-        text += "\n\n"
-        text += f"{summary[:800]}..."
+        text += "\n"
+        text += "─" * 30 + "\n\n"
+        text += f"{summary[:1000]}"
+        if len(summary) > 1000:
+            text += "..."
         if key_points:
-            text += "\n\n<b>Key Takeaways:</b>\n"
-            for p in key_points:
-                text += f"• {p}\n"
-        text += "\n\n#DailyReading #BookSummary"
+            text += "\n\n<b>📌 Key Takeaways:</b>\n"
+            for i, p in enumerate(key_points, 1):
+                text += f"{i}. {p}\n"
+        text += "\n\n<i>Reply anytime to adjust settings</i>"
         return self.send_message(chat_id, text)
 
 
@@ -179,6 +182,22 @@ class WhatsAppNotifier:
 
     def is_configured(self) -> bool:
         return bool(self.account_sid and self.auth_token and self.from_number)
+
+    def send_daily_reading(self, to_number: str, book_title: str, chapter_num: int,
+                            chapter_title: Optional[str], summary: str,
+                            key_points: List[str]) -> bool:
+        msg = f"📚 {book_title}\n▸ Chapter {chapter_num}"
+        if chapter_title:
+            msg += f": {chapter_title}"
+        msg += f"\n\n{summary[:600]}"
+        if len(summary) > 600:
+            msg += "..."
+        if key_points:
+            msg += "\n\n📌 Key Takeaways:\n"
+            for i, p in enumerate(key_points, 1):
+                msg += f"{i}. {p}\n"
+        msg += "\n\nBooks Daily Updates"
+        return self.send_whatsapp(to_number, msg)
 
     def send_whatsapp(self, to_number: str, message: str) -> bool:
         if not self.is_configured():

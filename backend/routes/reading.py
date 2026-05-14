@@ -78,12 +78,13 @@ async def get_daily_reading(
 
 @router.post("/schedule", response_model=ScheduleSchema)
 async def create_schedule(
-    book_id: int,
-    user_id: int = 1,
-    start_date: Optional[str] = None,
-    chapters_per_day: int = 1,
+    payload: dict,
     db: Session = Depends(get_db),
 ):
+    book_id = payload.get("book_id")
+    user_id = payload.get("user_id", 1)
+    start_date = payload.get("start_date")
+    chapters_per_day = payload.get("chapters_per_day", 1)
     book = db.query(Book).filter(Book.id == book_id).first()
     if not book:
         raise HTTPException(404, "Book not found")
@@ -178,13 +179,14 @@ async def send_todays_reading(
         results.append({"channel": "telegram", "status": "sent" if ok else "failed"})
 
     if user.whatsapp_notifications and user.whatsapp_number:
-        msg = f"📚 {daily.book_title} - Chapter {daily.chapter_number}"
-        if daily.chapter_title:
-            msg += f": {daily.chapter_title}"
-        msg += f"\n\n{daily.summary[:500]}...\n\nKey Points:\n"
-        for p in daily.key_points:
-            msg += f"• {p}\n"
-        ok = whatsapp_notifier.send_whatsapp(user.whatsapp_number, msg)
+        ok = whatsapp_notifier.send_daily_reading(
+            to_number=user.whatsapp_number,
+            book_title=daily.book_title,
+            chapter_num=daily.chapter_number,
+            chapter_title=daily.chapter_title,
+            summary=daily.summary,
+            key_points=daily.key_points,
+        )
         results.append({"channel": "whatsapp", "status": "sent" if ok else "failed"})
 
     return {"results": results}

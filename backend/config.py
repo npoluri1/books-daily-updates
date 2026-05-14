@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     timezone: str = "Asia/Kolkata"
     max_chapters_per_day: int = 1
 
+    default_currency: str = "USD"
+    supported_currencies: str = "USD,EUR,GBP,INR,AED,SGD,AUD,CAD,JPY"
+    shipping_weight_unit: str = "kg"
+    default_country: str = "US"
+
+    stripe_key: Optional[str] = None
+    paypal_key: Optional[str] = None
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

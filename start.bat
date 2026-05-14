@@ -19,9 +19,18 @@ py -3.11 --version >nul 2>&1 && set PYTHON_CMD=py -3.11 && goto :found
 :found
 %PYTHON_CMD% --version
 
+:: Create .env from template if needed
+if not exist ".env" (
+    if exist ".env.example" (
+        echo [1/5] Creating .env from .env.example...
+        copy ".env.example" ".env" >nul
+        echo   ^> Please edit .env with your credentials (see SETUP.md)
+    )
+)
+
 :: Create venv if needed
 if not exist "venv\" (
-    echo [1/4] Creating virtual environment...
+    echo [2/5] Creating virtual environment...
     %PYTHON_CMD% -m venv venv
 )
 
@@ -29,21 +38,22 @@ if not exist "venv\" (
 call venv\Scripts\activate.bat
 
 :: Install deps
-echo [2/4] Installing dependencies...
+echo [3/5] Installing dependencies...
 pip install -q fastapi "uvicorn[standard]" sqlalchemy pydantic pydantic-settings apscheduler httpx python-multipart aiofiles
 pip install -q pandas openpyxl 2>nul
 pip install -q python-telegram-bot twilio sentence-transformers 2>nul
 
 :: Generate sample data
-echo [3/4] Generating sample Excel files...
+echo [4/5] Generating sample Excel files...
 python backend\data\generate_sample.py
 
 :: Start backend
-echo [4/4] Starting server...
+echo [5/5] Starting server...
 echo.
 echo ============================================
 echo   App running at: http://localhost:8000
 echo   API Docs at:    http://localhost:8000/docs
+echo   Setup Guide:   SETUP.md
 echo ============================================
 echo.
 

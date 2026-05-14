@@ -5,13 +5,15 @@ import re
 
 
 def parse_excel_books(file_path: str) -> List[Dict[str, Any]]:
-    xls = pd.ExcelFile(file_path, dtype=str)
+    xls = pd.ExcelFile(file_path)
     sheet_names = xls.sheet_names
 
     possible_title_cols = ["title", "book", "book_title", "name", "book_name", "bookname"]
     possible_author_cols = ["author", "author_name", "writer", "creator"]
     possible_isbn_cols = ["isbn", "isbn13", "isbn10", "book_id"]
     possible_chapters_cols = ["chapters", "total_chapters", "num_chapters", "chapter_count"]
+    possible_price_cols = ["price", "cost", "amount", "selling_price"]
+    possible_stock_cols = ["stock", "stock_quantity", "quantity", "qty", "inventory"]
 
     seen_titles = set()
     all_books = []
@@ -30,6 +32,8 @@ def parse_excel_books(file_path: str) -> List[Dict[str, Any]]:
         author_col = _find_column(df.columns, possible_author_cols)
         isbn_col = _find_column(df.columns, possible_isbn_cols)
         chapters_col = _find_column(df.columns, possible_chapters_cols)
+        price_col = _find_column(df.columns, possible_price_cols)
+        stock_col = _find_column(df.columns, possible_stock_cols)
 
         for _, row in df.iterrows():
             title = str(row[title_col]).strip()
@@ -49,12 +53,26 @@ def parse_excel_books(file_path: str) -> List[Dict[str, Any]]:
                 total_chapters = int(float(chapters_str))
             except (ValueError, TypeError):
                 pass
+            price = 0.0
+            if price_col:
+                try:
+                    price = float(str(row[price_col]).strip())
+                except (ValueError, TypeError):
+                    pass
+            stock = 50
+            if stock_col:
+                try:
+                    stock = int(float(str(row[stock_col]).strip()))
+                except (ValueError, TypeError):
+                    pass
 
             all_books.append({
                 "title": title,
                 "author": author if author else None,
                 "isbn": isbn if isbn else None,
                 "total_chapters": total_chapters,
+                "price": price,
+                "stock_quantity": stock,
             })
 
     return all_books

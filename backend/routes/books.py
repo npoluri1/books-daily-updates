@@ -1,8 +1,10 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import tempfile
 import re
+import shutil
 from pathlib import Path
 
 from backend.database.connection import get_db
@@ -16,48 +18,62 @@ from backend.services.ai_summarizer import summarizer
 
 router = APIRouter(prefix="/api/books", tags=["Books"])
 
+UPLOAD_DIR = Path(__file__).parent.parent / "data" / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
 
 @router.post("/upload", response_model=BookUploadResponse)
 async def upload_books(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    if not file.filename.endswith((".xlsx", ".xls")):
+    if not file.filename or not file.filename.endswith((".xlsx", ".xls")):
         raise HTTPException(400, "Only Excel files (.xlsx, .xls) are supported")
 
-    ext = Path(file.filename).suffix
-    with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
-        content = await file.read()
-        tmp.write(content)
-        tmp_path = tmp.name
-
+    dest_path = UPLOAD_DIR / f"{Path(file.filename).stem}_{int(__import__('time').time())}{Path(file.filename).suffix}"
     try:
-        parsed_books = parse_excel_books(tmp_path)
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
+        content = await file.read()
+        dest_path.write_bytes(content)
+        parsed_books = parse_excel_books(str(dest_path))
+    except Exception as e:
+        if dest_path.exists():
+            dest_path.unlink(missing_ok=True)
+        raise HTTPException(400, f"Failed to parse Excel file: {e}")
 
     if not parsed_books:
+        if dest_path.exists():
+            dest_path.unlink(missing_ok=True)
         raise HTTPException(400, "No books found in the Excel file")
 
     books_added = 0
+    books_skipped = 0
     book_names = []
+    existing_titles = {b.title.strip().lower() for b in db.query(Book).all()}
+
     for book_data in parsed_books:
-        existing = db.query(Book).filter(Book.title == book_data["title"]).first()
-        if existing:
-            book_names.append(f"{book_data['title']} (already exists)")
+        title = book_data["title"].strip()
+        title_lower = title.lower()
+        if title_lower in existing_titles:
+            book_names.append(f"{title} (already exists)")
+            books_skipped += 1
             continue
 
         db_book = Book(
-            title=book_data["title"],
+            title=title,
             author=book_data.get("author"),
             isbn=book_data.get("isbn"),
             total_chapters=book_data.get("total_chapters", 0) or 0,
-            source_file=file.filename,
+            price=book_data.get("price", 0.0),
+            stock_quantity=book_data.get("stock_quantity", 50),
+            is_digital=False,
+            is_active=True,
+            source_file=str(dest_path),
         )
         db.add(db_book)
+        existing_titles.add(title_lower)
         books_added += 1
-        book_names.append(book_data["title"])
+        book_names.append(title)
 
     db.commit()
     return BookUploadResponse(
-        message=f"Uploaded {len(parsed_books)} books, added {books_added} new",
+        message=f"Found {len(parsed_books)} books: added {books_added} new, skipped {books_skipped} duplicates",
         books_found=len(parsed_books),
         books_added=books_added,
         books=book_names,
@@ -79,6 +95,8 @@ async def list_books(
         book_dicts = [{"title": b.title, "author": b.author, "id": b.id} for b in all_books]
         matched = search_books_by_regex(book_dicts, search, use_regex=regex)
         matched_ids = {m["id"] for m in matched}
+        if not matched_ids:
+            return []
         query = db.query(Book).filter(Book.id.in_(matched_ids), Book.is_active == True)
 
     total = query.count()

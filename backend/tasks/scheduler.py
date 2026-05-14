@@ -128,13 +128,14 @@ async def _send_notifications():
                     )
 
                 if user.whatsapp_notifications and user.whatsapp_number:
-                    msg = f"📚 {book.title} - Chapter {next_chapter}"
-                    if chapter.chapter_title:
-                        msg += f": {chapter.chapter_title}"
-                    msg += f"\n\n{chapter.summary[:500]}...\n\nKey Points:\n"
-                    for p in key_points:
-                        msg += f"• {p}\n"
-                    whatsapp_notifier.send_whatsapp(user.whatsapp_number, msg)
+                    whatsapp_notifier.send_daily_reading(
+                        to_number=user.whatsapp_number,
+                        book_title=book.title,
+                        chapter_num=next_chapter,
+                        chapter_title=chapter.chapter_title,
+                        summary=chapter.summary,
+                        key_points=key_points,
+                    )
 
                 if book.total_chapters and next_chapter >= book.total_chapters:
                     schedule.is_active = False

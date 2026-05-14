@@ -16,12 +16,18 @@ class AISummarizer:
     def _load_model(self):
         if self._model is not None:
             return self._model
+        import threading
+        threading.Thread(target=self._load_model_async, daemon=True).start()
+        return None
+
+    def _load_model_async(self):
         try:
             from sentence_transformers import SentenceTransformer
-            self._model = SentenceTransformer("all-MiniLM-L6-v2")
+            import logging
+            logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
+            self._model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
         except Exception:
             self._model = None
-        return self._model
 
     def generate_summary(self, book_title: str, chapter_number: int,
                          chapter_title: Optional[str] = None,
@@ -34,17 +40,21 @@ class AISummarizer:
         if chapter_title:
             chap += f": {chapter_title}"
 
-        prompt = f"""You are a literary analyst. Summarize {chap} of {title_info}.
+        context_block = f"\n\nAdditional Context:\n{context}" if context else ""
 
-Provide a structured response in this exact JSON format:
+        prompt = f"""You are a concise book summarizer. Summarize the key points from {title_info}, {chap}.
+
+{context_block}
+
+Format your response in this exact JSON structure:
 {{
-  "summary": "A concise 3-5 paragraph summary of the chapter covering all major events, concepts, and developments. Write in clear, engaging prose.",
+  "summary": "## TL;DR\\nOne-sentence summary of the chapter.\\n\\nThen 2-3 paragraphs covering the main concepts, developments, and insights. Write in clear, engaging prose suitable for mobile reading.",
   "key_points": [
-    "Key point 1: specific, actionable insight from the chapter",
-    "Key point 2: specific, actionable insight from the chapter",
-    "Key point 3: specific, actionable insight from the chapter",
-    "Key point 4: specific, actionable insight from the chapter",
-    "Key point 5: specific, actionable insight from the chapter"
+    "Key takeaway 1: specific, actionable insight from this chapter",
+    "Key takeaway 2: specific, actionable insight from this chapter",
+    "Key takeaway 3: specific, actionable insight from this chapter",
+    "Key takeaway 4: specific, actionable insight from this chapter",
+    "Key takeaway 5: specific, actionable insight from this chapter"
   ],
   "reading_time_minutes": 5
 }}"""
@@ -52,20 +62,12 @@ Provide a structured response in this exact JSON format:
         return self._call_llm(prompt, chapter_number)
 
     def _call_llm(self, prompt: str, chapter_number: int) -> Dict[str, Any]:
-        providers = [
-            self._try_huggingface,
-            self._try_ollama,
-            self._try_fallback,
-        ]
-
-        for provider in providers:
-            try:
-                result = provider(prompt)
-                if result:
-                    return result
-            except Exception:
-                continue
-
+        result = self._try_huggingface(prompt)
+        if result:
+            return result
+        result = self._try_ollama(prompt)
+        if result:
+            return result
         return self._generate_fallback(chapter_number)
 
     def _try_huggingface(self, prompt: str) -> Optional[Dict[str, Any]]:
@@ -86,13 +88,13 @@ Provide a structured response in this exact JSON format:
             payload = {
                 "inputs": f"<s>[INST] {prompt} [/INST]",
                 "parameters": {
-                    "max_new_tokens": 1024,
+                    "max_new_tokens": 512,
                     "temperature": 0.7,
                     "return_full_text": False,
                 }
             }
 
-            with httpx.Client(timeout=60) as client:
+            with httpx.Client(timeout=15) as client:
                 resp = client.post(
                     f"https://api-inference.huggingface.co/models/{model}",
                     headers=headers,
@@ -134,40 +136,6 @@ Provide a structured response in this exact JSON format:
                 if resp.status_code == 200:
                     text = resp.json().get("response", "")
                     return self._parse_json_from_text(text)
-        except Exception:
-            pass
-        return None
-
-    def _try_fallback(self, prompt: str) -> Optional[Dict[str, Any]]:
-        try:
-            import httpx
-            payload = {
-                "messages": [
-                    {"role": "system", "content": "You are a literary analyst. Respond with valid JSON only."},
-                    {"role": "user", "content": prompt},
-                ],
-                "max_tokens": 1024,
-                "temperature": 0.7,
-            }
-            try:
-                from backend.config import settings
-                api_key = settings.openrouter_key
-                if api_key:
-                    headers = {
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json",
-                    }
-                    resp = httpx.post(
-                        "https://openrouter.ai/api/v1/chat/completions",
-                        headers=headers,
-                        json=payload,
-                        timeout=60,
-                    )
-                    if resp.status_code == 200:
-                        text = resp.json()["choices"][0]["message"]["content"]
-                        return self._parse_json_from_text(text)
-            except Exception:
-                pass
         except Exception:
             pass
         return None

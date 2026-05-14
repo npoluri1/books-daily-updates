@@ -11,13 +11,14 @@ router = APIRouter(prefix="/api/users", tags=["Users"])
 
 @router.post("/")
 async def create_user(
-    email: str,
-    name: Optional[str] = None,
+    payload: dict,
     db: Session = Depends(get_db),
 ):
+    email = payload.get("email", "user@example.com")
+    name = payload.get("name", "Reader")
     existing = db.query(User).filter(User.email == email).first()
     if existing:
-        return {"id": existing.id, "message": "User already exists"}
+        return {"id": existing.id, "email": existing.email, "name": existing.name, "message": "User already exists"}
 
     user = User(email=email, name=name)
     db.add(user)

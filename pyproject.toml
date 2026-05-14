@@ -22,4 +22,5 @@ dependencies = [
     "python-telegram-bot>=20.7",
     "twilio>=9.0.2",
     "sentence-transformers>=2.2.0",
+    "chromadb>=0.4.22",
 ]
